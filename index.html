@@ -225,19 +225,23 @@
         ? Math.round(5 * constraints.filter(Boolean).length / constraints.length)
         : 3;
 
-      let evidenceScore = evidence ? 3 : 0;
-      let evidenceNote = evidence
-        ? "A reference was supplied, but this prototype does not perform semantic fact-checking."
-        : "No reference text was supplied, so evidence quality could not be assessed.";
+            let evidenceScore = null;
+      let evidenceNote = "Not assessed: no reference text was supplied.";
 
       if (evidence) {
-        const refWords = new Set(evidence.toLowerCase().match(/\b[a-z0-9]+\b/g) || []);
+        const refWords = new Set(
+          evidence.toLowerCase().match(/\b[a-z0-9]+\b/g) || []
+        );
+
         const answerContent = answerWords.filter(w => w.length > 4);
         const matched = answerContent.filter(w => refWords.has(w)).length;
+
         evidenceScore = answerContent.length
           ? Math.min(5, Math.round((matched / answerContent.length) * 5))
           : 0;
-        evidenceNote = "Lexical overlap with the reference was checked. Matching words do not prove that a claim is true.";
+
+        evidenceNote =
+          "Lexical overlap with the reference was checked. Matching words do not prove that a claim is true.";
       }
 
       const warningPatterns = [
@@ -256,9 +260,9 @@
         { name: "Safety", score: safetyScore, reason: flags ? "A predefined warning phrase was detected; human review is required." : "No predefined warning phrase was detected; this is not a full safety assessment." }
       ];
 
-      const assessed = dimensions.filter(d => d.name !== "Evidence quality" || evidence);
-      const overall = assessed.reduce((sum, d) => sum + d.score, 0) /
-        (assessed.length * 5) * 100;
+    const assessed = dimensions.filter(d => d.score !== null);
+const overall = assessed.reduce((sum, d) => sum + d.score, 0) /
+  (assessed.length * 5) * 100;
 
       const feedback = [];
       if (relevance < 3) feedback.push("Check whether the answer directly addresses the user's request.");
@@ -274,7 +278,10 @@
         "Heuristic screening result. This score is not a probability of correctness.";
       document.getElementById("metrics").innerHTML = dimensions.map(d => `
         <div class="metric">
-          <div class="metric-top"><span>${d.name}</span><span>${d.score}/5</span></div>
+          <div class="metric-top">
+  <span>${d.name}</span>
+  <span>${d.score === null ? "Not assessed" : d.score + "/5"}</span>
+</div>
           <div class="bar"><div class="fill" style="width:${d.score * 20}%"></div></div>
           <p class="hint">${d.reason}</p>
         </div>
