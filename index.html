@@ -211,8 +211,50 @@
         : 3;
 
       const wordCount = answerWords.length;
-      let completeness = wordCount < 15 ? 1 : wordCount < 35 ? 2 :
-        wordCount < 70 ? 3 : wordCount < 120 ? 4 : 5;
+            let completeness = 1;
+      let completenessNote = "";
+
+      const countMatch = task.match(
+        /\b(?:three|3|four|4|five|5|two|2|six|6)\b/i
+      );
+
+      const requestedCount = countMatch
+        ? ({
+            two: 2, three: 3, four: 4, five: 5, six: 6,
+            "2": 2, "3": 3, "4": 4, "5": 5, "6": 6
+          })[countMatch[0].toLowerCase()]
+        : null;
+
+      if (requestedCount) {
+        const sentences = answer
+          .split(/[.!?]+/)
+          .map(s => s.trim())
+          .filter(Boolean);
+
+        const identifiableItems = sentences.length;
+
+        if (identifiableItems >= requestedCount) {
+          completeness = 5;
+          completenessNote =
+            `Found ${identifiableItems} sentence(s) for ${requestedCount} requested items. Sentence count is only a rough estimate.`;
+        } else {
+          completeness = Math.max(
+            1,
+            Math.round((identifiableItems / requestedCount) * 5)
+          );
+          completenessNote =
+            `Found ${identifiableItems} sentence(s), while the task requests ${requestedCount} items. Sentence count is only a rough estimate.`;
+        }
+      } else {
+        completeness = wordCount < 15 ? 1
+          : wordCount < 35 ? 2
+          : wordCount < 60 ? 3
+          : wordCount < 100 ? 4
+          : 5;
+
+        completenessNote =
+          "No explicit item count was detected. This score uses answer length as a rough proxy, not a true assessment of completeness.";
+      } 
 
       const constraints = [];
       if (/\b(three|3)\b/i.test(task)) constraints.push(answerSentences.length >= 3);
