@@ -72,10 +72,19 @@
           }
         );
 
-        const fullText = output[0].generated_text;
-const prompt = "Task: Explain why drinking water is important. " +
-  "Write two short sentences for a general audience.";
-result.textContent = fullText.slice(prompt.length).trim();
+        const generated = output[0].generated_text;
+
+if (Array.isArray(generated)) {
+  result.textContent =
+    generated[generated.length - 1].content.trim();
+} else {
+  const prompt = "Task: Explain why drinking water is important. " +
+    "Write two short sentences for a general audience.";
+
+  result.textContent = generated.startsWith(prompt)
+    ? generated.slice(prompt.length).trim()
+    : generated;
+}
         status.textContent = "Success! The model ran in your browser.";
       } catch (error) {
         console.error(error);
