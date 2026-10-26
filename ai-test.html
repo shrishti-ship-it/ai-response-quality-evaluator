@@ -72,7 +72,10 @@
           }
         );
 
-        result.textContent = output[0].generated_text;
+        const fullText = output[0].generated_text;
+const prompt = "Task: Explain why drinking water is important. " +
+  "Write two short sentences for a general audience.";
+result.textContent = fullText.slice(prompt.length).trim();
         status.textContent = "Success! The model ran in your browser.";
       } catch (error) {
         console.error(error);
