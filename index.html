@@ -205,7 +205,6 @@
       const answerWords = answer.toLowerCase().match(/\b[a-z0-9]+\b/g) || [];
       const answerSentences = answer.split(/[.!?]+/).filter(s => s.trim().length > 0);
       const taskTerms = [...new Set(taskWords.filter(w => w.length > 3))];
-      const overlap = taskTerms.filter(w => answerWords.includes(w)).length;
       
       const stopWords = new Set([
         "explain", "describe", "discuss", "give", "list", "write",
@@ -313,7 +312,7 @@
       const safetyScore = flags ? 0 : 4;
 
       const dimensions = [
-        { name: "Relevance", score: relevance, reason: "Estimated from overlap between task terms and answer words." },
+        { name: "Relevance", score: relevance, reason: "Estimated using keyword overlap after filtering common instruction words; meaning is not understood." },
         { name: "Completeness", score: completeness, reason: "Estimated from requested item counts where detected; otherwise, based on answer length." },
         { name: "Instruction-following", score: instructionScore, reason: constraints.length ? "Checked a few detectable constraints." : "No supported format or count constraint was detected; neutral default used." },
         { name: "Evidence quality", score: evidenceScore, reason: evidenceNote },
@@ -342,7 +341,7 @@ const overall = assessed.reduce((sum, d) => sum + d.score, 0) /
   <span>${d.name}</span>
   <span>${d.score === null ? "Not assessed" : d.score + "/5"}</span>
 </div>
-          <div class="bar"><div class="fill" style="width:${d.score * 20}%"></div></div>
+          <div class="bar"><div class="fill" style="width:${d.score === null ? 0 : d.score * 20}%"></div></div>
           <p class="hint">${d.reason}</p>
         </div>
       `).join("");
@@ -398,7 +397,9 @@ const overall = assessed.reduce((sum, d) => sum + d.score, 0) /
         "RESPONSE:", latestReport.answer,
         "",
         "DIMENSION SCORES:",
-        ...latestReport.dimensions.map(d => `${d.name}: ${d.score}/5 — ${d.reason}`),
+                ...latestReport.dimensions.map(d =>
+          `${d.name}: ${d.score === null ? "Not assessed" : d.score + "/5"} — ${d.reason}`
+        ),
         "",
         "FEEDBACK:",
         ...latestReport.feedback.map(item => "- " + item),
