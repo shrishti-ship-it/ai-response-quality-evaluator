@@ -1,0 +1,21 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Browser AI Test</title>
+</head>
+<body>
+  <h1>Browser AI Test</h1>
+  <p id="status">Loading AI library...</p>
+
+  <script type="module">
+    import { pipeline }
+      from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
+
+    document.getElementById("status").textContent =
+      "AI library loaded. No model has been downloaded yet.";
+  </script>
+</body>
+</html>
