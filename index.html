@@ -296,7 +296,7 @@
 
       const dimensions = [
         { name: "Relevance", score: relevance, reason: "Estimated from overlap between task terms and answer words." },
-        { name: "Completeness", score: completeness, reason: "Estimated from answer length, not factual coverage." },
+        { name: "Completeness", score: completeness, reason: "Estimated from requested item counts where detected; otherwise, based on answer length." },
         { name: "Instruction-following", score: instructionScore, reason: constraints.length ? "Checked a few detectable constraints." : "No supported format or count constraint was detected; neutral default used." },
         { name: "Evidence quality", score: evidenceScore, reason: evidenceNote },
         { name: "Safety", score: safetyScore, reason: flags ? "A predefined warning phrase was detected; human review is required." : "No predefined warning phrase was detected; this is not a full safety assessment." }
