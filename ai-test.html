@@ -13,10 +13,12 @@
       padding: 20px;
       line-height: 1.6;
     }
+
     button {
       padding: 10px 16px;
       cursor: pointer;
     }
+
     #status, #result {
       white-space: pre-wrap;
       overflow-wrap: anywhere;
@@ -29,6 +31,7 @@
 
   <button id="run">Download and test AI model</button>
   <p id="status">Ready. Click the button to begin.</p>
+
   <h2>Model response</h2>
   <p id="result">No response yet.</p>
 
@@ -63,33 +66,50 @@
 
         status.textContent = "Model loaded. Generating a response...";
 
-        const output = await generator(
-          "Task: Explain why drinking water is important. " +
-          "Write two short sentences for a general audience.",
+        const messages = [
           {
-            max_new_tokens: 80,
-            do_sample: false
+            role: "system",
+            content:
+              "You are a helpful assistant. Follow the user's request. " +
+              "Give only the answer, without repeating the instructions."
+          },
+          {
+            role: "user",
+            content:
+              "Explain why drinking water is important to human health. " +
+              "Write exactly two short, complete sentences."
           }
-        );
+        ];
+
+        const output = await generator(messages, {
+          max_new_tokens: 100,
+          do_sample: false
+        });
 
         const generated = output[0].generated_text;
 
-if (Array.isArray(generated)) {
-  result.textContent =
-    generated[generated.length - 1].content.trim();
-} else {
-  const prompt = "Task: Explain why drinking water is important. " +
-    "Write two short sentences for a general audience.";
+        let answer;
 
-  result.textContent = generated.startsWith(prompt)
-    ? generated.slice(prompt.length).trim()
-    : generated;
-}
-        status.textContent = "Success! The model ran in your browser.";
+        if (Array.isArray(generated)) {
+          const lastMessage = generated[generated.length - 1];
+          answer = lastMessage?.content?.trim() || "";
+        } else if (typeof generated === "string") {
+          answer = generated.trim();
+        } else {
+          answer = "";
+        }
+
+        result.textContent = answer || "The model returned no readable text.";
+
+        if (!answer) {
+          status.textContent = "No readable answer was generated.";
+        } else {
+          status.textContent =
+            "Generation finished. Review the answer for accuracy and completeness.";
+        }
       } catch (error) {
         console.error(error);
-        status.textContent =
-          "The test failed. Error: " + error.message;
+        status.textContent = "The test failed: " + error.message;
       } finally {
         button.disabled = false;
       }
