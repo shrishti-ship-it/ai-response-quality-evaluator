@@ -206,8 +206,26 @@
       const answerSentences = answer.split(/[.!?]+/).filter(s => s.trim().length > 0);
       const taskTerms = [...new Set(taskWords.filter(w => w.length > 3))];
       const overlap = taskTerms.filter(w => answerWords.includes(w)).length;
-      const relevance = taskTerms.length
-        ? Math.min(5, Math.round((overlap / taskTerms.length) * 5))
+      
+      const stopWords = new Set([
+        "explain", "describe", "discuss", "give", "list", "write",
+        "tell", "show", "what", "how", "why", "the", "and", "for",
+        "with", "from", "that", "this", "these", "those", "into",
+        "about", "your", "their", "its", "are", "was", "were",
+        "can", "could", "should", "would", "please", "simple",
+        "language", "briefly"
+      ]);
+
+      const relevanceTerms = taskTerms.filter(
+        word => !stopWords.has(word) && word.length > 2
+      );
+
+      const overlap = relevanceTerms.filter(
+        word => answerWords.includes(word)
+      ).length;
+
+      const relevance = relevanceTerms.length
+        ? Math.min(5, Math.round((overlap / relevanceTerms.length) * 5))
         : 3;
 
       const wordCount = answerWords.length;
