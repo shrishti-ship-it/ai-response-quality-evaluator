@@ -4,18 +4,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Browser AI Test</title>
+  <title>Browser AI Model Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 760px;
+      margin: 40px auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    button {
+      padding: 10px 16px;
+      cursor: pointer;
+    }
+    #status, #result {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+  </style>
 </head>
 <body>
-  <h1>Browser AI Test</h1>
-  <p id="status">Loading AI library...</p>
+  <h1>Browser AI Model Test</h1>
+  <p>This test runs a small language model in your browser.</p>
+
+  <button id="run">Download and test AI model</button>
+  <p id="status">Ready. Click the button to begin.</p>
+  <h2>Model response</h2>
+  <p id="result">No response yet.</p>
 
   <script type="module">
     import { pipeline }
       from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
 
-    document.getElementById("status").textContent =
-      "AI library loaded. No model has been downloaded yet.";
+    const status = document.getElementById("status");
+    const result = document.getElementById("result");
+    const button = document.getElementById("run");
+
+    let generator = null;
+
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      result.textContent = "";
+
+      try {
+        if (!generator) {
+          status.textContent =
+            "Downloading model files. This may take several minutes...";
+
+          generator = await pipeline(
+            "text-generation",
+            "onnx-community/Qwen2.5-0.5B-Instruct",
+            {
+              device: "webgpu",
+              dtype: "q4"
+            }
+          );
+        }
+
+        status.textContent = "Model loaded. Generating a response...";
+
+        const output = await generator(
+          "Task: Explain why drinking water is important. " +
+          "Write two short sentences for a general audience.",
+          {
+            max_new_tokens: 80,
+            do_sample: false
+          }
+        );
+
+        result.textContent = output[0].generated_text;
+        status.textContent = "Success! The model ran in your browser.";
+      } catch (error) {
+        console.error(error);
+        status.textContent =
+          "The test failed. Error: " + error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
+
