@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Response Quality Evaluator</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6fb;
+      color: #20283a;
+      line-height: 1.6;
+    }
+
+    header {
+      background: #18233f;
+      color: white;
+      padding: 32px 20px;
+      text-align: center;
+    }
+
+    header h1 { margin: 0 0 8px; font-size: 30px; }
+    header p { margin: 0; color: #d9e2f5; }
+
+    main {
+      max-width: 850px;
+      margin: 28px auto;
+      padding: 0 18px;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 18px rgba(25, 39, 70, 0.06);
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin: 18px 0 8px;
+    }
+
+    textarea, select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccd3e0;
+      border-radius: 7px;
+      font: inherit;
+      background: white;
+    }
+
+    textarea { min-height: 120px; resize: vertical; }
+
+    button {
+      margin-top: 18px;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 7px;
+      background: #315bd6;
+      color: white;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover { background: #2448b4; }
+
+    .secondary {
+      background: #e9edf7;
+      color: #263657;
+      margin-left: 8px;
+    }
+
+    .secondary:hover { background: #dce3f2; }
+
+    .hint { color: #667085; font-size: 13px; }
+
+    .score {
+      font-size: 34px;
+      font-weight: bold;
+      color: #315bd6;
+    }
+
+    .metric {
+      padding: 14px 0;
+      border-bottom: 1px solid #edf0f5;
+    }
+
+    .metric:last-child { border-bottom: none; }
+
+    .metric-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-weight: bold;
+    }
+
+    .bar {
+      height: 8px;
+      margin-top: 8px;
+      background: #e9edf7;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      background: #5276e5;
+      width: 0;
+    }
+
+    .hidden { display: none; }
+
+    .note {
+      background: #f0f4ff;
+      border-left: 4px solid #5276e5;
+      padding: 12px 14px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    footer {
+      text-align: center;
+      color: #667085;
+      padding: 20px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI Response Quality Evaluator</h1>
+    <p>A structured framework for reviewing AI-generated answers.</p>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>Evaluate a response</h2>
+      <p>Enter the original task and the answer you want to assess.</p>
+
+      <label for="task">Original instruction or question</label>
+      <textarea id="task" placeholder="Example: Explain three benefits of regular exercise in simple language."></textarea>
+
+      <label for="answer">AI-generated response</label>
+      <textarea id="answer" placeholder="Paste the response you want to evaluate here."></textarea>
+
+      <label for="evidence">Evidence or reference text (optional)</label>
+      <textarea id="evidence" placeholder="Paste trusted source material here if you want to check whether the answer aligns with it."></textarea>
+      <p class="hint">Without reference text, evidence quality cannot be verified. The evaluator will report this limitation.</p>
+
+      <button onclick="evaluateResponse()">Evaluate response</button>
+      <button class="secondary" onclick="loadExample()">Load example</button>
+      <button class="secondary" onclick="clearForm()">Clear</button>
+    </section>
+
+    <section class="panel hidden" id="results" aria-live="polite">
+      <h2>Evaluation results</h2>
+      <div class="score" id="overall">—</div>
+      <p id="summary"></p>
+      <div id="metrics"></div>
+
+      <h3>Feedback</h3>
+      <ul id="feedback"></ul>
+
+      <div class="note" id="limitations"></div>
+
+      <button onclick="downloadReport()">Download report (.txt)</button>
+    </section>
+
+    <section class="panel">
+      <h2>Evaluation framework</h2>
+      <p>This prototype uses five dimensions, each scored from 0 to 5.</p>
+      <ul>
+        <li><strong>Relevance:</strong> Does the answer address the task?</li>
+        <li><strong>Completeness:</strong> Does it appear sufficiently developed?</li>
+        <li><strong>Instruction-following:</strong> Does it respect apparent constraints?</li>
+        <li><strong>Evidence quality:</strong> Can claims be compared with supplied reference text?</li>
+        <li><strong>Safety:</strong> Does the response contain obvious warning signs?</li>
+      </ul>
+      <p class="hint">These are heuristic checks, not a validated measure of response quality or a substitute for human review.</p>
+    </section>
+  </main>
+
+  <footer>AI Response Quality Evaluator · Early prototype</footer>
+
+  <script>
+    let latestReport = null;
+
+    function evaluateResponse() {
+      const task = document.getElementById("task").value.trim();
+      const answer = document.getElementById("answer").value.trim();
+      const evidence = document.getElementById("evidence").value.trim();
+
+      if (!task || !answer) {
+        alert("Please enter both the original instruction and the AI response.");
+        return;
+      }
+
+      const taskWords = task.toLowerCase().match(/\b[a-z0-9]+\b/g) || [];
+      const answerWords = answer.toLowerCase().match(/\b[a-z0-9]+\b/g) || [];
+      const answerSentences = answer.split(/[.!?]+/).filter(s => s.trim().length > 0);
+      const taskTerms = [...new Set(taskWords.filter(w => w.length > 3))];
+      
+      const stopWords = new Set([
+        "explain", "describe", "discuss", "give", "list", "write",
+        "tell", "show", "what", "how", "why", "the", "and", "for",
+        "with", "from", "that", "this", "these", "those", "into",
+        "about", "your", "their", "its", "are", "was", "were",
+        "can", "could", "should", "would", "please", "simple",
+        "language", "briefly"
+      ]);
+
+      const relevanceTerms = taskTerms.filter(
+        word => !stopWords.has(word) && word.length > 2
+      );
+
+      const overlap = relevanceTerms.filter(
+        word => answerWords.includes(word)
+      ).length;
+
+      const relevance = relevanceTerms.length
+        ? Math.min(5, Math.round((overlap / relevanceTerms.length) * 5))
+        : 3;
+
+      const wordCount = answerWords.length;
+            let completeness = 1;
+      let completenessNote = "";
+
+      const countMatch = task.match(
+        /\b(?:three|3|four|4|five|5|two|2|six|6)\b/i
+      );
+
+      const requestedCount = countMatch
+        ? ({
+            two: 2, three: 3, four: 4, five: 5, six: 6,
+            "2": 2, "3": 3, "4": 4, "5": 5, "6": 6
+          })[countMatch[0].toLowerCase()]
+        : null;
+
+      if (requestedCount) {
+        const sentences = answer
+          .split(/[.!?]+/)
+          .map(s => s.trim())
+          .filter(Boolean);
+
+        const identifiableItems = sentences.length;
+
+        if (identifiableItems >= requestedCount) {
+          completeness = 5;
+          completenessNote =
+            `Found ${identifiableItems} sentence(s) for ${requestedCount} requested items. Sentence count is only a rough estimate.`;
+        } else {
+          completeness = Math.max(
+            1,
+            Math.round((identifiableItems / requestedCount) * 5)
+          );
+          completenessNote =
+            `Found ${identifiableItems} sentence(s), while the task requests ${requestedCount} items. Sentence count is only a rough estimate.`;
+        }
+      } else {
+        completeness = wordCount < 15 ? 1
+          : wordCount < 35 ? 2
+          : wordCount < 60 ? 3
+          : wordCount < 100 ? 4
+          : 5;
+
+        completenessNote =
+          "No explicit item count was detected. This score uses answer length as a rough proxy, not a true assessment of completeness.";
+      } 
+
+      const constraints = [];
+      if (/\b(three|3)\b/i.test(task)) constraints.push(answerSentences.length >= 3);
+      if (/\b(two|2)\b/i.test(task)) constraints.push(answerSentences.length >= 2);
+      if (/\b(one|1)\b/i.test(task)) constraints.push(answerSentences.length >= 1);
+      if (/\b(simple language|in simple terms|beginner)\b/i.test(task)) {
+        constraints.push(!/\b(aforementioned|notwithstanding|paradigm)\b/i.test(answer));
+      }
+      const instructionScore = constraints.length
+        ? Math.round(5 * constraints.filter(Boolean).length / constraints.length)
+        : 3;
+
+            let evidenceScore = null;
+      let evidenceNote = "Not assessed: no reference text was supplied.";
+
+      if (evidence) {
+        const refWords = new Set(
+          evidence.toLowerCase().match(/\b[a-z0-9]+\b/g) || []
+        );
+
+        const answerContent = answerWords.filter(w => w.length > 4);
+        const matched = answerContent.filter(w => refWords.has(w)).length;
+
+        evidenceScore = answerContent.length
+          ? Math.min(5, Math.round((matched / answerContent.length) * 5))
+          : 0;
+
+        evidenceNote =
+          "Lexical overlap with the reference was checked. Matching words do not prove that a claim is true.";
+      }
+
+      const warningPatterns = [
+        /\b(kill yourself|self-harm instructions)\b/i,
+        /\b(build a bomb|make an explosive)\b/i,
+        /\b(steal passwords|steal credentials)\b/i
+      ];
+      const flags = warningPatterns.some(pattern => pattern.test(answer));
+      const safetyScore = flags ? 0 : 4;
+
+      const dimensions = [
+        { name: "Relevance", score: relevance, reason: "Estimated using keyword overlap after filtering common instruction words; meaning is not understood." },
+        { name: "Completeness", score: completeness, reason: "Estimated from requested item counts where detected; otherwise, based on answer length." },
+        { name: "Instruction-following", score: instructionScore, reason: constraints.length ? "Checked a few detectable constraints." : "No supported format or count constraint was detected; neutral default used." },
+        { name: "Evidence quality", score: evidenceScore, reason: evidenceNote },
+        { name: "Safety", score: safetyScore, reason: flags ? "A predefined warning phrase was detected; human review is required." : "No predefined warning phrase was detected; this is not a full safety assessment." }
+      ];
+
+    const assessed = dimensions.filter(d => d.score !== null);
+const overall = assessed.reduce((sum, d) => sum + d.score, 0) /
+  (assessed.length * 5) * 100;
+
+      const feedback = [];
+      if (relevance < 3) feedback.push("Check whether the answer directly addresses the user's request.");
+      if (completeness < 3) feedback.push("Consider whether the response needs more explanation or relevant detail.");
+      if (instructionScore < 3) feedback.push("Review the requested constraints and verify that each has been followed.");
+      if (!evidence) feedback.push("Provide trusted reference material for a more meaningful evidence review.");
+      if (evidence && evidenceScore < 3) feedback.push("Review claims against the reference; lexical mismatch alone does not establish inaccuracy.");
+      if (flags) feedback.push("Potential safety concern flagged. Review the response manually before use.");
+      if (!feedback.length) feedback.push("No major issues were detected by these basic checks. Human review is still recommended.");
+
+      document.getElementById("overall").textContent = Math.round(overall) + " / 100";
+      document.getElementById("summary").textContent =
+        "Heuristic screening result. This score is not a probability of correctness.";
+      document.getElementById("metrics").innerHTML = dimensions.map(d => `
+        <div class="metric">
+          <div class="metric-top">
+  <span>${d.name}</span>
+  <span>${d.score === null ? "Not assessed" : d.score + "/5"}</span>
+</div>
+          <div class="bar"><div class="fill" style="width:${d.score === null ? 0 : d.score * 20}%"></div></div>
+          <p class="hint">${d.reason}</p>
+        </div>
+      `).join("");
+
+      document.getElementById("feedback").innerHTML =
+        feedback.map(item => `<li>${escapeHtml(item)}</li>`).join("");
+      document.getElementById("limitations").textContent =
+        "Limitations: this version uses simple rules, not an AI model. " +
+        "It can miss errors, misjudge good answers, and cannot verify facts. " +
+        "Evidence note: " + evidenceNote;
+
+      latestReport = {
+        task, answer, overall: Math.round(overall), dimensions, feedback,
+        evaluatedAt: new Date().toISOString()
+      };
+
+      document.getElementById("results").classList.remove("hidden");
+      document.getElementById("results").scrollIntoView({ behavior: "smooth" });
+    }
+
+    function escapeHtml(value) {
+      return value.replace(/[&<>"']/g, char => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;",
+        '"': "&quot;", "'": "&#39;"
+      })[char]);
+    }
+
+    function loadExample() {
+      document.getElementById("task").value =
+        "Explain three benefits of regular exercise in simple language.";
+      document.getElementById("answer").value =
+        "Regular exercise helps keep your heart healthy. It can improve your mood and reduce stress. It also builds stronger muscles and bones. Taking a walk, dancing, or cycling are simple ways to be active.";
+      document.getElementById("evidence").value = "";
+    }
+
+    function clearForm() {
+      document.getElementById("task").value = "";
+      document.getElementById("answer").value = "";
+      document.getElementById("evidence").value = "";
+      document.getElementById("results").classList.add("hidden");
+      latestReport = null;
+    }
+
+    function downloadReport() {
+      if (!latestReport) return;
+      const lines = [
+        "AI RESPONSE QUALITY EVALUATOR",
+        "Evaluated: " + latestReport.evaluatedAt,
+        "Overall heuristic score: " + latestReport.overall + "/100",
+        "",
+        "TASK:", latestReport.task,
+        "",
+        "RESPONSE:", latestReport.answer,
+        "",
+        "DIMENSION SCORES:",
+                ...latestReport.dimensions.map(d =>
+          `${d.name}: ${d.score === null ? "Not assessed" : d.score + "/5"} — ${d.reason}`
+        ),
+        "",
+        "FEEDBACK:",
+        ...latestReport.feedback.map(item => "- " + item),
+        "",
+        "Limitations: heuristic prototype; human review required."
+      ];
+      const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "response-quality-report.txt";
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
